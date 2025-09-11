@@ -1,6 +1,6 @@
 # AI Guardrail Benchmarking Tool
 
-**This project is total created by vibe coding, use at your own risk!**
+<font color="red">**This project is total created by vibe coding, use at your own risk!**</font>
 
 A Streamlit-based tool to benchmark and compare AI guardrail providers.
 

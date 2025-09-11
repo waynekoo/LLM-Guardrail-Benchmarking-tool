@@ -9,7 +9,7 @@ A Streamlit-based tool to benchmark and compare AI guardrail providers.
 ### 1. Clone the repository
 ```bash
 git clone <your-repo-url>
-cd AITEMOGuardRailComparisonTool
+cd LLM-Guardrail-Benchmarking-tool
 ```
 
 ### 2. Create and activate a Python virtual environment

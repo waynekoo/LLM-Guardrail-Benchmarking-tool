@@ -1,0 +1,1 @@
+{"endpoint": "https://api.promptfoo.dev/v1/guard", "api_key": "", "provider": "Generic (Async)", "http_method": "POST", "headers": {"Content-Type": "application/json"}, "payload_template": "{\"input\": \"hi how are you?\"}", "input_key": "input", "pass_fail_rule": " response['results'][0]['flagged']==False"}

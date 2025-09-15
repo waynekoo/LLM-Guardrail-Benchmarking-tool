@@ -44,9 +44,20 @@ elif st.session_state["authentication_status"] == None:
     st.stop()
 
 
+
 st.title('🔐 Protected Application')
 st.write(f'Welcome *{st.session_state["name"]}*')
 st.set_page_config(layout="wide")
+
+# --- Global Evaluation Progress Bar ---
+if st.session_state.get("suite_eval_running", False):
+	progress = st.session_state.get("suite_eval_progress", 0)
+	total = st.session_state.get("suite_eval_total", 1)
+	eta = st.session_state.get("suite_eval_eta", None)
+	st.info("Evaluation in progress...")
+	st.progress(progress / total if total else 0, text=f"Progress: {progress}/{total} rows")
+	if eta is not None:
+		st.caption(f"Estimated time left: {eta}s")
 
 # Tabs for main modules
 import streamlit.components.v1 as components

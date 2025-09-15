@@ -1,3 +1,6 @@
+
+<span style="color:red;font-weight:bold;">This project was created by the help of Github Copilot.</span>
+
 ## Running with Docker
 
 You can run this application using Docker:
@@ -17,7 +20,6 @@ You can run this application using Docker:
 The app will be available at http://localhost:8501
 # AI Guardrail Benchmarking Tool
 
-<font color="red">**This project is total created by vibe coding, use at your own risk!**</font>
 
 A Streamlit-based tool to benchmark and compare AI guardrail providers.
 

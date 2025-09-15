@@ -1,3 +1,20 @@
+## Running with Docker
+
+You can run this application using Docker:
+
+1. Build the Docker image:
+
+	```bash
+	docker build -t guardrailbenchmark .
+	```
+
+2. Run the Docker container:
+
+	```bash
+	docker run -p 8501:8501 guardrailbenchmark
+	```
+
+The app will be available at http://localhost:8501
 # AI Guardrail Benchmarking Tool
 
 <font color="red">**This project is total created by vibe coding, use at your own risk!**</font>

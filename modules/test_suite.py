@@ -74,6 +74,13 @@ def run_evaluation(dataset_manager, guardrail_connector, selected_datasets, sele
 					reply = loop.run_until_complete(guardrail_connector.request_guardrail_api(url, payload_copy, headers, method=method))
 			except Exception as e:
 				reply = {"error": str(e)}
+				# Stop evaluation and notify user for connection error
+				session_state["suite_eval_running"] = False
+				if row_cb:
+					row_cb(ds, None, None)
+				if error_callback := session_state.get("suite_eval_error_callback"):
+					error_callback(f"Evaluation stopped due to provider connection error: {str(e)}")
+				return all_logs, None
 			t1 = time.time()
 
 			# --- Evaluate pass/fail rule from config ---
@@ -86,6 +93,13 @@ def run_evaluation(dataset_manager, guardrail_connector, selected_datasets, sele
 				except Exception as e:
 					eval_result = False
 					eval_error = str(e)
+					# Stop evaluation and notify user
+					session_state["suite_eval_running"] = False
+					if row_cb:
+						row_cb(ds, None, None)
+					if error_callback := session_state.get("suite_eval_error_callback"):
+						error_callback(f"Evaluation stopped due to error in pass/fail rule: {eval_error}")
+					return all_logs, None
 
 			log_entry = {
 				"dataset": ds,
@@ -116,7 +130,9 @@ def run_evaluation(dataset_manager, guardrail_connector, selected_datasets, sele
 	# Save logs to results dir
 	results_dir = "results"
 	os.makedirs(results_dir, exist_ok=True)
-	timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+	from datetime import timedelta, timezone
+	gmt8 = timezone(timedelta(hours=8))
+	timestamp = datetime.now(gmt8).strftime("%Y%m%d_%H%M%S")
 	# Use guardrail_name for file naming, replace spaces and special chars with underscores
 	safe_guardrail_name = ''.join(c if c.isalnum() else '_' for c in guardrail_name)
 	result_file = os.path.join(results_dir, f"{safe_guardrail_name}_result_{timestamp}.json")

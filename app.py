@@ -466,28 +466,32 @@ with tabs[3]:
 	dataset_files = dataset_manager.list_datasets()
 	guardrail_configs = guardrail_connector.list_guardrail_configs()
 
-	# Get row count from config file for each dataset
-	def get_row_count_from_config(file):
+	# Get row count and label from config file for each dataset
+	def get_row_count_and_label(file):
 		config_file = os.path.join(dataset_manager.CONFIG_DIR, f"{file}.config.json")
+		row_count = "?"
+		label = "unlabeled"
 		if os.path.exists(config_file):
 			try:
 				import json
 				with open(config_file, "r") as f:
 					config = json.load(f)
-				return config.get("row_count", "?")
+				row_count = config.get("row_count", "?")
+				label = config.get("label", "unlabeled")
 			except Exception:
-				return "?"
-		else:
-			return "?"
+				pass
+		return row_count, label
 
-	dataset_options = [f"{f} ({get_row_count_from_config(f)} rows)" for f in dataset_files]
-	file_map = {f"{f} ({get_row_count_from_config(f)} rows)": f for f in dataset_files}
+	dataset_options = [f"{f} [{get_row_count_and_label(f)[1]}] ({get_row_count_and_label(f)[0]} rows)" for f in dataset_files]
+	file_map = {f"{f} [{get_row_count_and_label(f)[1]}] ({get_row_count_and_label(f)[0]} rows)": f for f in dataset_files}
 
 	selected_options = st.multiselect("Select datasets for evaluation", dataset_options, key="test_suite_datasets")
 	selected_datasets = [file_map[o] for o in selected_options]
 	selected_guardrail = st.selectbox("Select guardrail config", guardrail_configs, key="test_suite_guardrail")
 
 	run_eval = st.button("Run Evaluation", key="run_eval_btn_suite")
+	if run_eval:
+		st.session_state["suite_eval_error_msg"] = ""
 	stop_eval = st.button("Stop Evaluation", key="stop_eval_btn_suite")
 	progress_placeholder = st.empty()
 	eta_placeholder = st.empty()
@@ -495,6 +499,15 @@ with tabs[3]:
 	results_placeholder = st.empty()
 	log_download_placeholder = st.empty()
 	error_placeholder = st.empty()
+
+	# Error display logic
+	def show_suite_eval_error(msg):
+		error_placeholder.error(msg)
+		st.session_state["suite_eval_error_msg"] = msg
+	st.session_state["suite_eval_error_callback"] = show_suite_eval_error
+	# Show error if present from previous run
+	if st.session_state.get("suite_eval_error_msg"):
+		error_placeholder.error(st.session_state["suite_eval_error_msg"])
 
 	# Use session state to allow stopping
 	if "suite_eval_running" not in st.session_state:

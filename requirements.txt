@@ -4,3 +4,6 @@ requests
 plotly
 aiohttp
 matplotlib
+python-dotenv
+streamlit_authenticator
+PyYAML

@@ -1,3 +1,15 @@
+def set_row_count(filename, row_count):
+	"""
+	Save the number of rows in the dataset config file.
+	"""
+	config_file = os.path.join(CONFIG_DIR, f"{filename}.config.json")
+	config = {}
+	if os.path.exists(config_file):
+		with open(config_file, "r") as f:
+			config = json.load(f)
+	config["row_count"] = row_count
+	with open(config_file, "w") as f:
+		json.dump(config, f)
 def rename_dataset(old_filename, new_filename):
 	"""
 	Rename the dataset file and its unified config file.

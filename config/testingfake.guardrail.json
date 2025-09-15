@@ -1,1 +1,0 @@
-{"endpoint": "http://52.76.109.235:8000/analyze/prompt", "api_key": "Bearer my-token", "provider": "Generic (Async)", "http_method": "POST", "headers": {"Content-Type": "application/json", "Authorization": "Bearer my-token"}, "payload_template": "{\"prompt\": \"this is normal chat data\"}", "input_key": "prom", "pass_fail_rule": "response[\"is_valid\"] == True"}

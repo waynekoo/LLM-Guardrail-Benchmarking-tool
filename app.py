@@ -2,22 +2,67 @@
 import streamlit as st
 import os
 import json
+import streamlit_authenticator as stauth
+import yaml
+from yaml.loader import SafeLoader
 
-st.set_page_config(page_title="AI Guardrail Benchmarking Tool", layout="wide")
-st.title("AI Guardrail Benchmarking Tool")
+
+# Load the config
+with open('./credentials.yml') as file:
+    config = yaml.load(file, Loader=SafeLoader)
+
+# Pre-hashing all plain text passwords once
+stauth.Hasher.hash_passwords(config['credentials'])
+
+# Save the Hashed Credentials to our config file
+with open('./credentials.yml', 'w') as file:
+    yaml.dump(config, file, default_flow_style=False)
+
+authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days']
+)
+
+try:
+    auth = authenticator.login('main')
+except Exception as e:
+    st.error(e)
+
+# All the authentication info is stored in the session_state
+if st.session_state["authentication_status"]:
+    # User is connected
+    authenticator.logout('Logout', 'main')
+elif st.session_state["authentication_status"] == False:
+    st.error('Username/password is incorrect')
+    # Stop the rendering if the user isn't connected
+    st.stop()
+elif st.session_state["authentication_status"] == None:
+    st.warning('Please enter your username and password')
+    # Stop the rendering if the user isn't connected
+    st.stop()
+
+
+st.title('🔐 Protected Application')
+st.write(f'Welcome *{st.session_state["name"]}*')
+st.set_page_config(layout="wide")
 
 # Tabs for main modules
+import streamlit.components.v1 as components
+
 tab_names = [
-	"Overview",
-	"Dataset Management",
-	"Guardrail Integration",
-	"Test Suite Management",
-	"Metrics & Evaluation",
-	"Customizable Criteria",
-	"Results & Visualization",
-	"Comparison",
-	"Automation",
-	"User Management (Optional)"
+    "Overview",
+    "1.Dataset Management",
+    "2.Guardrail Integration",
+    "3.Test Suite Management",
+    "Results & Visualization",
+    "Comparison",
+    # Disabled tabs
+    "Metrics & Evaluation (coming soon)",
+    "Customizable Criteria (coming soon)",
+    "Automation (coming soon)",
+    "User Management (coming soon)"
 ]
 tabs = st.tabs(tab_names)
 
@@ -53,22 +98,6 @@ with tabs[0]:
 				"Define test types (prompt injection, toxicity, jailbreak, etc.)",
 				"Custom test creation UI",
 				"Save/load test suites"
-			]
-		},
-		{
-			"name": "Metrics & Evaluation",
-			"description": "Measure accuracy, latency, robustness, and other relevant metrics.",
-			"features": [
-				"Accuracy, latency, robustness, etc.",
-				"Custom metrics support"
-			]
-		},
-		{
-			"name": "Customizable Criteria",
-			"description": "Let users define what 'success' or 'failure' means for their use case.",
-			"features": [
-				"UI for pass/fail logic per test",
-				"Save/load criteria"
 			]
 		},
 		{
@@ -121,13 +150,35 @@ with tabs[1]:
 	with left_col:
 		st.subheader("Actions")
 		uploaded_file = st.file_uploader("Upload CSV or JSON", type=["csv", "json"])
+		# Session state for selected dataset
+		if "selected_dataset" not in st.session_state:
+			st.session_state["selected_dataset"] = None
 		if uploaded_file is not None:
 			file_path = os.path.join(dataset_manager.DATA_DIR, uploaded_file.name)
 			with open(file_path, "wb") as f:
 				f.write(uploaded_file.getbuffer())
+			# Save row count to config
+			try:
+				import pandas as pd
+				if uploaded_file.name.endswith('.csv'):
+					df = pd.read_csv(file_path)
+				elif uploaded_file.name.endswith('.json'):
+					df = pd.read_json(file_path)
+				else:
+					df = None
+				if df is not None:
+					dataset_manager.set_row_count(uploaded_file.name, df.shape[0])
+			except Exception as e:
+				st.warning(f"Could not determine row count: {e}")
 			st.success(f"Uploaded {uploaded_file.name}")
+			st.session_state["selected_dataset"] = uploaded_file.name
 		dataset_files = dataset_manager.list_datasets()
-		selected_dataset = st.selectbox("Select dataset", dataset_files if dataset_files else ["No datasets found"])
+		selected_dataset = st.selectbox(
+			"Select dataset",
+			dataset_files if dataset_files else ["No datasets found"],
+			index=dataset_files.index(st.session_state["selected_dataset"]) if st.session_state.get("selected_dataset") in dataset_files else 0
+		)
+		st.session_state["selected_dataset"] = selected_dataset
 		if st.button("Refresh List"):
 			st.rerun()
 		# Remove dataset functionality
@@ -161,13 +212,35 @@ with tabs[1]:
 				if missing_fields:
 					st.error(f"Missing required field(s) in dataset config: {', '.join(missing_fields)}. Please set them below.")
 
-				# Show dataset label (benign/malicious) as a badge
+				# 1. Mark Dataset Type (move to top)
+				st.subheader("Mark Dataset Type (Required)")
 				current_label = dataset_manager.get_dataset_label(selected_dataset)
+				st.write(f"Current label: **{current_label if current_label else 'Not set'}**")
+				label_option = st.radio("Set dataset label:", ["benign", "malicious"], index=0 if current_label == "benign" else 1 if current_label == "malicious" else 0)
+				if st.button("Save Label"):
+					dataset_manager.set_dataset_label(selected_dataset, label_option)
+					st.success(f"Dataset '{selected_dataset}' marked as {label_option}.")
+					st.session_state["selected_dataset"] = selected_dataset
+					st.rerun()
+				# Show dataset label (benign/malicious) as a badge
 				if current_label:
 					color = "green" if current_label == "benign" else "red"
 					st.markdown(f"<span style='color:white;background-color:{color};padding:4px 12px;border-radius:8px;font-weight:bold;'>{current_label.capitalize()} dataset</span>", unsafe_allow_html=True)
-
-				# --- Condensed grid for dataset actions ---
+				# 2. Select column to send to guardrail (move to top)
+				st.subheader("Select Column to Send to Guardrail (Required)")
+				saved_column = dataset_manager.get_column_selection(selected_dataset)
+				col_to_send = st.selectbox(
+					"Select the column to send to the guardrail:",
+					df.columns,
+					index=df.columns.get_loc(saved_column) if saved_column in df.columns else 0,
+					key="sendcol"
+				)
+				if st.button("Save column selection"):
+					dataset_manager.set_column_selection(selected_dataset, col_to_send)
+					st.success(f"Column '{col_to_send}' saved for {selected_dataset}.")
+					st.session_state["selected_dataset"] = selected_dataset
+					st.rerun()
+				# --- Condensed grid for other dataset actions ---
 				grid1, grid2 = st.columns(2)
 				with grid1:
 					st.subheader("Rename Dataset & Description")
@@ -187,15 +260,6 @@ with tabs[1]:
 							st.rerun()
 						else:
 							st.warning("Enter a valid new name (must end with .csv or .json and be different from current name).")
-					st.subheader("Mark Dataset Type")
-					current_label = dataset_manager.get_dataset_label(selected_dataset)
-					st.write(f"Current label: **{current_label if current_label else 'Not set'}**")
-					label_option = st.radio("Set dataset label:", ["benign", "malicious"], index=0 if current_label == "benign" else 1 if current_label == "malicious" else 0)
-					if st.button("Save Label"):
-						dataset_manager.set_dataset_label(selected_dataset, label_option)
-						st.success(f"Dataset '{selected_dataset}' marked as {label_option}.")
-						st.rerun()
-
 					st.subheader("Download Dataset")
 					import io
 					if selected_dataset.endswith('csv'):
@@ -214,7 +278,6 @@ with tabs[1]:
 							file_name=selected_dataset,
 							mime="application/json"
 						)
-
 				with grid2:
 					st.subheader("Add New Column")
 					new_col_name = st.text_input("New column name", key="addcol")
@@ -248,18 +311,6 @@ with tabs[1]:
 							st.success(f"Column '{col_to_delete}' deleted from {selected_dataset}.")
 							st.cache_data.clear()
 							st.rerun()
-
-				# Column selection for guardrail input (below grid)
-				saved_column = dataset_manager.get_column_selection(selected_dataset)
-				col_to_send = st.selectbox(
-					"Select the column to send to the guardrail:",
-					df.columns,
-					index=df.columns.get_loc(saved_column) if saved_column in df.columns else 0,
-					key="sendcol"
-				)
-				if st.button("Save column selection"):
-					dataset_manager.set_column_selection(selected_dataset, col_to_send)
-					st.success(f"Column '{col_to_send}' saved for {selected_dataset}.")
 			except Exception as e:
 				st.error(f"Failed to load dataset: {e}")
 		else:
@@ -484,19 +535,40 @@ with tabs[3]:
 		results_placeholder.empty()
 		log_download_placeholder.empty()
 
+# --- Results and Visualization Tab ---
+with tabs[4]:
+	from modules import results_viz
+	results_dir = os.path.join(os.path.dirname(__file__), "results")
+	results_viz.show_results_viz_tab(tabs[4], results_dir)
+
 # --- Placeholders for other tabs ---
-for i, tab in enumerate(tabs[4:], start=4):
-    if tab_names[i] == "Results & Visualization":
-        from modules import results_viz
-        results_dir = os.path.join(os.path.dirname(__file__), "results")
+for i, tab in enumerate(tabs):
+    if tab_names[i] in [
+        "Metrics & Evaluation (coming soon)",
+        "Customizable Criteria (coming soon)",
+        "Automation (coming soon)",
+        "User Management (coming soon)"
+    ]:
         with tab:
-            results_viz.show_results_viz_tab(tab, results_dir)
+            components.html('<div style="color:gray;text-align:center;padding:40px;font-size:1.2em;background:#f0f0f0;border-radius:8px;">This module is not yet implemented.</div>', height=100)
+    elif tab_names[i] == "Results & Visualization":
+        # Results & Visualization tab logic is already implemented below
+        pass
     elif tab_names[i] == "Comparison":
         # Comparison tab logic is already implemented below
         pass
-    else:
-        with tab:
-            st.info(f"{tab_names[i]} module coming soon.")
+    elif tab_names[i] == "Overview":
+        # ...existing code for Overview tab...
+        pass
+    elif tab_names[i] == "Dataset Management":
+        # ...existing code for Dataset Management tab...
+        pass
+    elif tab_names[i] == "Guardrail Integration":
+        # ...existing code for Guardrail Integration tab...
+        pass
+    elif tab_names[i] == "Test Suite Management":
+        # ...existing code for Test Suite Management tab...
+        pass
 
 # --- Comparison Tab UI scaffold ---
 if "Comparison" in tab_names:

@@ -86,7 +86,7 @@ def load_dataset(filename):
 	if filename.endswith('.csv'):
 		return pd.read_csv(file_path)
 	elif filename.endswith('.json'):
-		return pd.read_json(file_path)
+		return pd.read_json(file_path, orient='records')
 	else:
 		return None
 

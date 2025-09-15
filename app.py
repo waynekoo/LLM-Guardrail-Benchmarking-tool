@@ -173,11 +173,24 @@ with tabs[1]:
 			st.success(f"Uploaded {uploaded_file.name}")
 			st.session_state["selected_dataset"] = uploaded_file.name
 		dataset_files = dataset_manager.list_datasets()
-		selected_dataset = st.selectbox(
+		# Show label beside dataset name
+		def get_label_tag(ds):
+			label = dataset_manager.get_dataset_label(ds)
+			if label == "malicious":
+				return "[malicious]"
+			elif label == "benign":
+				return "[benign]"
+			else:
+				return "[unlabeled]"
+		dataset_display = [f"{ds} {get_label_tag(ds)}" for ds in dataset_files]
+		# Map display name back to filename
+		display_to_file = {f"{ds} {get_label_tag(ds)}": ds for ds in dataset_files}
+		selected_display = st.selectbox(
 			"Select dataset",
-			dataset_files if dataset_files else ["No datasets found"],
-			index=dataset_files.index(st.session_state["selected_dataset"]) if st.session_state.get("selected_dataset") in dataset_files else 0
+			dataset_display if dataset_display else ["No datasets found"],
+			index=dataset_display.index(f"{st.session_state['selected_dataset']} {get_label_tag(st.session_state['selected_dataset'])}") if st.session_state.get("selected_dataset") in dataset_files else 0
 		)
+		selected_dataset = display_to_file.get(selected_display, None)
 		st.session_state["selected_dataset"] = selected_dataset
 		if st.button("Refresh List"):
 			st.rerun()
@@ -193,7 +206,7 @@ with tabs[1]:
 			try:
 				df = dataset_manager.load_dataset(selected_dataset)
 				st.write(f"Preview of `{selected_dataset}`:")
-				st.dataframe(df.head(20), width='stretch')
+				st.dataframe(df, width='stretch')
 				st.caption(f"Rows: {df.shape[0]}, Columns: {df.shape[1]}")
 
 				# Error check for label and column
@@ -442,31 +455,22 @@ with tabs[3]:
 	dataset_files = dataset_manager.list_datasets()
 	guardrail_configs = guardrail_connector.list_guardrail_configs()
 
-	# Estimate row counts for each dataset (efficient, no full load)
-	def estimate_row_count(file):
-		path = os.path.join(dataset_manager.DATA_DIR, file)
-		if file.endswith('.csv'):
-			try:
-				with open(path, 'r', encoding='utf-8') as f:
-					return sum(1 for _ in f) - 1  # subtract header
-			except Exception:
-				return 0
-		elif file.endswith('.json'):
+	# Get row count from config file for each dataset
+	def get_row_count_from_config(file):
+		config_file = os.path.join(dataset_manager.CONFIG_DIR, f"{file}.config.json")
+		if os.path.exists(config_file):
 			try:
 				import json
-				with open(path, 'r', encoding='utf-8') as f:
-					data = json.load(f)
-					if isinstance(data, list):
-						return len(data)
-					else:
-						return 0
+				with open(config_file, "r") as f:
+					config = json.load(f)
+				return config.get("row_count", "?")
 			except Exception:
-				return 0
+				return "?"
 		else:
-			return 0
+			return "?"
 
-	dataset_options = [f"{f} ({estimate_row_count(f)} rows)" for f in dataset_files]
-	file_map = {f"{f} ({estimate_row_count(f)} rows)": f for f in dataset_files}
+	dataset_options = [f"{f} ({get_row_count_from_config(f)} rows)" for f in dataset_files]
+	file_map = {f"{f} ({get_row_count_from_config(f)} rows)": f for f in dataset_files}
 
 	selected_options = st.multiselect("Select datasets for evaluation", dataset_options, key="test_suite_datasets")
 	selected_datasets = [file_map[o] for o in selected_options]

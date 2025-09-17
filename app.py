@@ -196,12 +196,23 @@ with tabs[1]:
 		dataset_display = [f"{ds} {get_label_tag(ds)}" for ds in dataset_files]
 		# Map display name back to filename
 		display_to_file = {f"{ds} {get_label_tag(ds)}": ds for ds in dataset_files}
+		# Use a key for selectbox and let Streamlit manage the state
+		if "selected_display" not in st.session_state:
+			# Set default selection
+			if st.session_state.get("selected_dataset") in dataset_files:
+				st.session_state["selected_display"] = f"{st.session_state['selected_dataset']} {get_label_tag(st.session_state['selected_dataset'])}"
+			elif dataset_display:
+				st.session_state["selected_display"] = dataset_display[0]
+			else:
+				st.session_state["selected_display"] = "No datasets found"
+
 		selected_display = st.selectbox(
 			"Select dataset",
 			dataset_display if dataset_display else ["No datasets found"],
-			index=dataset_display.index(f"{st.session_state['selected_dataset']} {get_label_tag(st.session_state['selected_dataset'])}") if st.session_state.get("selected_dataset") in dataset_files else 0
+			key="selected_display"
 		)
 		selected_dataset = display_to_file.get(selected_display, None)
+		# Update selected_dataset in session_state to keep everything in sync
 		st.session_state["selected_dataset"] = selected_dataset
 		if st.button("Refresh List"):
 			st.rerun()

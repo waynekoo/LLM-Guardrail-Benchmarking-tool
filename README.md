@@ -12,7 +12,7 @@ You can run this application using Docker:
 	```
 
 	```bash
-	docker build -t guardrailbenchmark .
+	docker build --no-cache -t guardrailbenchmark .
 	```
 
 

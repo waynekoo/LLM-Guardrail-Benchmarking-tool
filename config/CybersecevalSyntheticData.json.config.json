@@ -1,1 +1,1 @@
-{"row_count": 2249, "column": "prompt", "label": "malicious"}
+{"row_count": 2249, "column": "prompt", "label": "malicious", "description": "synthetic data generated based on cyberseceval 2 paper prompt injection dataset"}

@@ -8,13 +8,24 @@ You can run this application using Docker:
 1. Build the Docker image:
 
 	```bash
+	cd <into the git project>
+	```
+
+	```bash
 	docker build -t guardrailbenchmark .
 	```
 
-2. Run the Docker container:
+
+2. Run the Docker container with persistent folders:
 
 	```bash
-	docker run -p 8501:8501 guardrailbenchmark
+	docker run -d \
+		--name guardrailbenchmark \
+		-p 8501:8501 \
+		-v "$(pwd)/config":/app/config \
+		-v "$(pwd)/data":/app/data \
+		-v "$(pwd)/results":/app/results \
+		guardrailbenchmark
 	```
 
 The app will be available at http://localhost:8501

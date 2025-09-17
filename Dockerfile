@@ -14,6 +14,9 @@ RUN git clone https://github.com/waynekoo/LLM-Guardrail-Benchmarking-tool.git .
 
 RUN pip3 install -r requirements.txt
 
+# Create directories for volumes
+RUN mkdir -p /app/config /app/data /app/results
+
 EXPOSE 8501
 
 HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
